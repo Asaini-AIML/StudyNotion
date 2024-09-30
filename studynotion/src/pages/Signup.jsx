@@ -1,8 +1,16 @@
 import React from 'react'
-
-const Signup = () => {
+import Template from '../components/Template'
+import SignupImg from '../assets/signup.png'    
+const Signup = ({setIsLoggedIn}) => {
   return (
-    <div>Signup</div>
+    <Template
+    title="kjoin bhai shab"
+    desc1="kuch bhi"
+     desc2="Sign up"
+     image={SignupImg}
+     formtype="signup"
+     setIsLoggedIn={setIsLoggedIn}
+    />
   )
 }
 
