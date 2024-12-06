@@ -69,7 +69,7 @@ exports.getAllUserDetails= async (req, res) => {
         //return response
         return res.status(200).json({ success: true, message: 'user details'});
 
-        //fetch user details
+        
 
     }
     catch(err){
