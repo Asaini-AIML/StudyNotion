@@ -85,3 +85,24 @@ exports.getAllCourses=async(req,res)=>{
         return res.status(500).json({success:false,message:'Failed to fetch courses',err:err.message});
     }
 };
+
+
+//get coursedetails
+exports.getCourseDetails=async(req,res)=>{
+    try{
+        //get courseId
+        const {courseId}=req.body;
+        //get course details
+        const courseDetails=await Course.find({_id:courseId}).populate({path:'instructor',populate:{path:"additionalDetails"}}).populate('category').populate('ratingAndreviews').populate({path:'courseContent',populate:{path:'subSection'}}).exec();
+        //validate course
+        if(!courseDetails){
+            return res.status(404).json({success:false,message:`Course not found with Id ${courseId}`});
+        }
+        //return course details
+        return res.status(200).json({success:true,message:'Course details fetched successfully',data:courseDetails});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(500).json({success:false,message:'Failed to fetch course details',err:err.message});
+    }
+};
