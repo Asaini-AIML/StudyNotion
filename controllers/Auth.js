@@ -45,92 +45,123 @@ exports.sendOTP = async (req, res) => {
 //signUp
 exports.signUp = async (req, res) => {
     try {
-        //data from req ki body
-        const { firstName,lastName,email, password,confirmPassword,accountType,contactNumber,otp } = req.body;
-        //validate 
-        if(!firstName || !lastName || !email || !password || !confirmPassword  || !contactNumber || !otp){
-            return res.status(403).json({ success:false, message: 'Please fill all fields', });
+        // Destructure data from request body
+        const { firstName, lastName, email, password, confirmPassword, accountType, contactNumber, otp } = req.body;
+
+        // Validate required fields
+        if (!firstName || !lastName || !email || !password || !confirmPassword || !contactNumber || !otp || !accountType) {
+            return res.status(403).json({ success: false, message: 'Please fill all fields' });
         }
-        //2 passwords match
-        if(password !== confirmPassword){
-            return res.status(403).json({ success:false, message: 'Passwords do not match', });
+
+        // Check if passwords match
+        if (password !== confirmPassword) {
+            return res.status(403).json({ success: false, message: 'Passwords do not match' });
         }
-        //check if user already exists
-        const exitingUser = await User.findOne({email});
-        if(exitingUser){
-            return res.status(401).json({ success:false, message: 'User already exists', });
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(401).json({ success: false, message: 'User already exists' });
         }
-     //find most recent otp
-     const recentOtp = await OTP.findOne({email}).sort({createdAt:-1}).limit(1);
+
+        // Find most recent OTP
+        const recentOtp = await OTP.findOne({ email }).sort({ createdAt: -1 }).limit(1);
         console.log(recentOtp);
-      //validate otp
-      if(recentOtp.length === 0){
-            return res.status(400).json({ success:false, message: 'Please enter OTP', });
+
+        // Validate OTP
+        if (!recentOtp) {
+            return res.status(400).json({ success: false, message: 'Please enter OTP' });
         }
 
-       else if(recentOtp.otp !== otp){
-            return res.status(400).json({ success:false, message: 'Invalid OTP', });
+        if (recentOtp.otp !== otp) {
+            return res.status(400).json({ success: false, message: 'Invalid OTP' });
         }
-        //hash password
+
+        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
-        //create user in db
-        const profileDetails = await Profile.create({gender:null,dateOfBirth:null,about:null,contactNumber:null});
-        const user = await User.create({firstName,lastName,email,password:hashedPassword,accountType,contactNumber,additionalDetails:profileDetails._id,image:`https://api.dicebear.com/5.x/initials/svg?seed=${firstName}${lastName}`,});
-        //return response
-        return res.status(200).json({ success:true, message: 'User created successfully',user });
 
+        // Create profile with default or null values where necessary
+        const profileDetails = await Profile.create({ 
+            gender: null, 
+            dateOfBirth: null, 
+            about: null, 
+            contactNumber: null 
+        });
 
-    }
-    catch(err){
-        console.error(err);
-        return res.status(500).json({ success:false, message: err.message, });
+        // Create user in the database
+        const user = await User.create({
+            firstName,
+            lastName,
+            email,
+            password: hashedPassword,
+            accountType,
+            contactNumber,
+            additionalDetails: profileDetails._id,
+            image: `https://api.dicebear.com/5.x/initials/svg?seed=${firstName}${lastName}`,
+        });
+
+        // Return success response
+        return res.status(200).json({ success: true, message: 'User created successfully', user });
+    } catch (err) {
+        console.error(err);  // Log the error for better debugging
+        return res.status(500).json({ success: false, message: `Fail to signup: ${err.message}` });
     }
 };
+
 
 //login
 exports.login = async (req, res) => {
     try {
-        //data from req ki body
         const { email, password } = req.body;
-        //validate
-        if(!email || !password){
-            return res.status(403).json({ success:false, message: 'Please fill all fields', });
-        }
-        //check if user exists
-        const user = await User.findOne({email}).populate('additionalDetails');
-        if(!user){
-            return res.status(401).json({ success:false, message: 'user not register please signUp first', });
-        }
-        //check password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if(!isPasswordValid){
-            return res.status(401).json({ success:false, message: 'Invalid credentials', });
-        }
-        //generate token
-        if(await bcrypt.compare(password, user.password)){
-            const payload = { email: user.email, id: user._id, accountType: user.accountType };
-            const token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '2h' });
-            user.token = token;
-            user.password = undefined;
 
-        
-        //create cookie
+        // Validate request data
+        if (!email || !password) {
+            return res.status(403).json({ success: false, message: 'Please fill all fields' });
+        }
+
+        // Check if the user exists
+        const user = await User.findOne({ email }).populate('additionalDetails');
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'User not registered, please sign up first' });
+        }
+
+        // Check password validity
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ success: false, message: 'Wrong Password' });
+        }
+
+        // Generate JWT token
+        const payload = { email: user.email, id: user._id, accountType: user.accountType };
+
+        // Log SECRET_KEY value for debugging
+        console.log('SECRET_KEY:', process.env.SECRET_KEY);
+
+        // Check if SECRET_KEY is loaded correctly
+        if (!process.env.SECRET_KEY) {
+            return res.status(500).json({ success: false, message: 'Missing SECRET_KEY in environment variables' });
+        }
+
+        const token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '2h' });
+
+        // Attach token to user object and remove password field before sending response
+        user.token = token;
+        user.password = undefined;
+
+        // Set cookie with JWT token and send response
         const option = {
             expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
             httpOnly: true,
         };
-        res.cookie('token', token, option).status(200).json({ success:true, message: 'User logged in successfully', user,token });
-    }
-        else{
-            return res.status(401).json({ success:false, message: 'password incorrect', });
-        }
 
-    }
-    catch(err){
+        res.cookie('token', token, option).status(200).json({ success: true, message: 'User logged in successfully', user, token });
+
+    } catch (err) {
         console.error(err);
-        return res.status(500).json({ success:false, message: err.message, });
+        return res.status(500).json({ success: false, message: `Error: ${err.message}` });
     }
-}
+};
+
 
 //change password
 exports.changePassword = async (req, res) => {
