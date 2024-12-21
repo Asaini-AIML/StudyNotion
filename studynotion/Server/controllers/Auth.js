@@ -36,10 +36,11 @@ exports.sendOTP = async (req, res) => {
    }
 
    
-    catch(err){
-        console.error(err);
-     return res.status(500).json({ success:false, message: err.message, });
-    }
+        catch (err) {
+            console.error('Error sending email:', err);
+        }
+        
+    
 };
 
 //signUp

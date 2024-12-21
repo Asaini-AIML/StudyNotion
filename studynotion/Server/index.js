@@ -21,12 +21,11 @@ database.connect();
 //middlewares
 app.use(express.json());
 app.use(cookieParser());
-app.use(
-	cors({
-		origin:"http://localhost:3000",
-		credentials:true,
-	})
-)
+app.use(cors({
+	origin: "http://localhost:3000",  // Make sure this matches your frontend's URL
+	methods: ["GET", "POST", "PUT", "DELETE"],
+	credentials: true,  // If you need to send cookies or authentication headers
+  }));
 
 app.use(fileUpload({
     useTempFiles: true,
